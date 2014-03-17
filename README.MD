@@ -1,0 +1,7 @@
+Java UNIX Socket JNI Library
+############################
+
+Fork of [http://code.google.com/p/junixsocket/], extended with:
+*  OSGI packaging
+*  Abstract socket connections
+*  Peer authentication via SCM_CREDENTIALS

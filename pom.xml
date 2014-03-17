@@ -1,0 +1,215 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+
+	<artifactId>junixsocket</artifactId>
+	<groupId>eu.agno3</groupId>
+	<version>2.1</version>
+
+	<packaging>bundle</packaging>
+	<name>JUnixSocket</name>
+
+	<properties>
+		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+	</properties>
+
+
+	<repositories>
+		<repository>
+			<id>agno3-thirdparty</id>
+			<url>https://maven.intra.agno3.eu/content/repositories/thirdparty</url>
+		</repository>
+	</repositories>
+
+	<build>
+		<plugins>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-compiler-plugin</artifactId>
+				<version>3.1</version>
+				<configuration>
+					<source>1.7</source>
+					<target>1.7</target>
+				</configuration>
+			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-surefire-plugin</artifactId>
+				<version>2.16</version>
+				<configuration>
+					<systemPropertyVariables>
+						<org.newsclub.net.unix.library.override>${project.build.directory}/libjunixsocket.so.${project.version}-linux64.jar</org.newsclub.net.unix.library.override>
+					</systemPropertyVariables>
+				</configuration>
+			</plugin>
+			<plugin>
+				<groupId>org.codehaus.mojo</groupId>
+				<artifactId>native-maven-plugin</artifactId>
+				<version>1.0-alpha-8</version>
+				<extensions>true</extensions>
+				<executions>
+					<execution>
+						<id>gen-native</id>
+						<phase>compile</phase>
+						<goals>
+							<goal>javah</goal>
+						</goals>
+					</execution>
+
+					<execution>
+						<id>gen-amd64</id>
+						<phase>compile</phase>
+						<goals>
+							<goal>initialize</goal>
+							<goal>compile</goal>
+							<goal>link</goal>
+						</goals>
+						<configuration>
+
+							<compilerOutputDirectory>${project.build.directory}/linux64</compilerOutputDirectory>
+							<compilerStartOptions>
+								<compilerStartOption>-m64 -fPIC</compilerStartOption>
+							</compilerStartOptions>
+							<linkerStartOptions>
+								<linkerStartOption>-m64 -shared</linkerStartOption>
+							</linkerStartOptions>
+
+							<linkerFinalName>libjunixsocket.so.${project.version}-linux64</linkerFinalName>
+							<classifier>jnilib-linux64</classifier>
+						</configuration>
+					</execution>
+
+					<execution>
+						<id>gen-x86</id>
+						<phase>compile</phase>
+						<goals>
+							<goal>initialize</goal>
+							<goal>compile</goal>
+							<goal>link</goal>
+						</goals>
+						<configuration>
+							<compilerOutputDirectory>${project.build.directory}/linux32</compilerOutputDirectory>
+							<compilerStartOptions>
+								<compilerStartOption>-m32 -fPIC</compilerStartOption>
+							</compilerStartOptions>
+							<linkerStartOptions>
+								<linkerStartOption>-m32 -shared</linkerStartOption>
+							</linkerStartOptions>
+
+							<linkerFinalName>libjunixsocket.so.${project.version}-linux32</linkerFinalName>
+							<classifier>jnilib-linux32</classifier>
+						</configuration>
+					</execution>
+				</executions>
+				<configuration>
+					<javahIncludes>
+						<javahInclude>
+							<className>org.newsclub.net.unix.NativeUnixSocket</className>
+							<headerName>junixsocket.h</headerName>
+						</javahInclude>
+					</javahIncludes>
+					<attach>false</attach>
+					<sources>
+						<source>
+							<directory>src/main/native/</directory>
+							<fileNames>
+								<fileName>junixsocket.c</fileName>
+							</fileNames>
+						</source>
+					</sources>
+
+					<javahOS>linux</javahOS>
+
+
+				</configuration>
+			</plugin>
+			<plugin>
+				<groupId>org.apache.felix</groupId>
+				<artifactId>maven-bundle-plugin</artifactId>
+				<version>2.4.0</version>
+				<extensions>true</extensions>
+
+				<configuration>
+					<instructions>
+						<Export-Package>
+							org.newsclub.net.unix;version="${project.version}"
+						</Export-Package>
+						<Import-Package>
+							org.osgi.framework,
+							org.apache.log4j
+						</Import-Package>
+						<Bundle-NativeCode>
+							lib/linux-x86/libjunixsocket.so;osname=Linux;processor=x86,
+							lib/linux-amd64/libjunixsocket.so;osname=Linux;processor=x86-64
+						</Bundle-NativeCode>
+						<Bundle-ActivationPolicy>lazy</Bundle-ActivationPolicy>
+						<Include-Resource>{maven-resources},
+							lib/linux-amd64/libjunixsocket.so=${project.build.directory}/libjunixsocket.so.${project.version}-linux64.jar,
+							lib/linux-x86/libjunixsocket.so=${project.build.directory}/libjunixsocket.so.${project.version}-linux32.jar</Include-Resource>
+					</instructions>
+					<addDependenciesToRepository>true</addDependenciesToRepository>
+				</configuration>
+			</plugin>
+		</plugins>
+		<pluginManagement>
+			<plugins>
+				<!--This plugin's configuration is used to store Eclipse m2e settings 
+					only. It has no influence on the Maven build itself. -->
+				<plugin>
+					<groupId>org.eclipse.m2e</groupId>
+					<artifactId>lifecycle-mapping</artifactId>
+					<version>1.0.0</version>
+					<configuration>
+						<lifecycleMappingMetadata>
+							<pluginExecutions>
+								<pluginExecution>
+									<pluginExecutionFilter>
+										<groupId>
+											org.codehaus.mojo
+										</groupId>
+										<artifactId>
+											native-maven-plugin
+										</artifactId>
+										<versionRange>
+											[1.0-alpha-8,)
+										</versionRange>
+										<goals>
+											<goal>initialize</goal>
+											<goal>link</goal>
+											<goal>javah</goal>
+											<goal>compile</goal>
+										</goals>
+									</pluginExecutionFilter>
+									<action>
+										<ignore></ignore>
+									</action>
+								</pluginExecution>
+							</pluginExecutions>
+						</lifecycleMappingMetadata>
+					</configuration>
+				</plugin>
+			</plugins>
+		</pluginManagement>
+	</build>
+	<dependencies>
+		<dependency>
+			<groupId>log4j</groupId>
+			<artifactId>log4j</artifactId>
+			<version>1.2.17</version>
+			<type>bundle</type>
+			<scope>provided</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.osgi</groupId>
+			<artifactId>org.osgi.core</artifactId>
+			<version>5.0.0</version>
+			<scope>provided</scope>
+		</dependency>
+		<dependency>
+			<groupId>junit</groupId>
+			<artifactId>junit</artifactId>
+			<version>4.11</version>
+			<scope>test</scope>
+		</dependency>
+	</dependencies>
+</project>
