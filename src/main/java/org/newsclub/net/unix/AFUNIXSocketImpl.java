@@ -78,11 +78,13 @@ class AFUNIXSocketImpl extends SocketImpl {
         return NativeUnixSocket.available(this.fd);
     }
 
+    protected void bind ( SocketAddress addr, boolean dgram ) throws IOException {
+        bind(0, addr);
+    }
 
     protected void bind ( SocketAddress addr ) throws IOException {
         bind(0, addr);
     }
-
 
     protected void bind ( int backlog, SocketAddress addr ) throws IOException {
         if ( ! ( addr instanceof AFUNIXSocketAddress ) ) {
@@ -90,7 +92,7 @@ class AFUNIXSocketImpl extends SocketImpl {
         }
         AFUNIXSocketAddress sockAddr = (AFUNIXSocketAddress) addr;
         this.socketFile = sockAddr.getSocketFile();
-        NativeUnixSocket.bind(this.socketFile, this.fd, backlog, sockAddr.isAbstract());
+        NativeUnixSocket.bind(this.socketFile, this.fd, backlog, sockAddr.isAbstract(), sockAddr.isDgram());
         this.bound = true;
         this.localport = sockAddr.getPort();
         this.abstractSocket = sockAddr.isAbstract();
@@ -146,7 +148,7 @@ class AFUNIXSocketImpl extends SocketImpl {
         }
         AFUNIXSocketAddress sockAddr = (AFUNIXSocketAddress) addr;
         this.socketFile = sockAddr.getSocketFile();
-        NativeUnixSocket.connect(this.socketFile, this.fd, sockAddr.isAbstract());
+        NativeUnixSocket.connect(this.socketFile, this.fd, sockAddr.isAbstract(), sockAddr.isDgram());
         this.address = sockAddr.getAddress();
         this.port = sockAddr.getPort();
         this.localport = 0;

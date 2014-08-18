@@ -159,7 +159,7 @@ typedef unsigned long socklen_t; /* 64-bits */
 	 * Signature: (Ljava/lang/String;Ljava/io/FileDescriptor;I)V
 	 */
 	JNIEXPORT void JNICALL Java_org_newsclub_net_unix_NativeUnixSocket_bind
-	(JNIEnv * env, jclass clazz, jstring file, jobject fd, jint backlog, jboolean abstract) {
+	(JNIEnv * env, jclass clazz, jstring file, jobject fd, jint backlog, jboolean abstract, jboolean dgram) {
 		const char* socketFile = (*env)->GetStringUTFChars(env, file, NULL);
 		if(socketFile == NULL) {
 			return; // OOME
@@ -169,8 +169,13 @@ typedef unsigned long socklen_t; /* 64-bits */
 			org_newsclub_net_unix_NativeUnixSocket_throwException(env, "Pathname too long for socket", file);
 			return;
 		}
+		int sockType = SOCK_STREAM;
+
+		if ( dgram == JNI_TRUE ) {
+			sockType = SOCK_DGRAM;
+		}
 		
-		int serverHandle = socket(AF_UNIX, SOCK_STREAM, 0);
+		int serverHandle = socket(AF_UNIX, sockType, 0);
 		if(serverHandle == -1) {
 			org_newsclub_net_unix_NativeUnixSocket_throwException(env,strerror(errno), file);
 			return;
@@ -291,7 +296,7 @@ typedef unsigned long socklen_t; /* 64-bits */
 	 * Signature: (Ljava/lang/String;Ljava/io/FileDescriptor;)V
 	 */
 	JNIEXPORT void JNICALL Java_org_newsclub_net_unix_NativeUnixSocket_connect
-	(JNIEnv * env, jclass clazz, jstring file, jobject fd, jboolean abstract) {
+	(JNIEnv * env, jclass clazz, jstring file, jobject fd, jboolean abstract, jboolean dgram) {
 		const char* socketFile = (*env)->GetStringUTFChars(env, file, NULL);
 		if(socketFile == NULL) {
 			return; // OOME
@@ -302,7 +307,13 @@ typedef unsigned long socklen_t; /* 64-bits */
 			return;
 		}
 
-		int socketHandle = socket(AF_UNIX, SOCK_STREAM, 0);
+		int sockType = SOCK_STREAM;
+
+		if ( dgram == JNI_TRUE ) {
+			sockType = SOCK_DGRAM;
+		}
+
+		int socketHandle = socket(AF_UNIX, sockType, 0);
 		if(socketHandle == -1) {
 			org_newsclub_net_unix_NativeUnixSocket_throwException(env, strerror(errno), file);
 			return;

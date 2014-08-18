@@ -37,6 +37,7 @@ public class AFUNIXSocketAddress extends InetSocketAddress {
     private static final long serialVersionUID = 1L;
     private final String socketFile;
     private final boolean abst;
+    private final boolean dgram;
 
 
     /**
@@ -47,7 +48,7 @@ public class AFUNIXSocketAddress extends InetSocketAddress {
      * @throws IOException
      */
     public AFUNIXSocketAddress ( final File socketFile ) throws IOException {
-        this(socketFile, 0, false);
+        this(socketFile, 0, false, false);
     }
 
 
@@ -61,7 +62,7 @@ public class AFUNIXSocketAddress extends InetSocketAddress {
      * @throws IOException
      */
     public AFUNIXSocketAddress ( final File socketFile, boolean abst ) throws IOException {
-        this(socketFile, 0, abst);
+        this(socketFile, 0, abst, false);
     }
 
 
@@ -74,7 +75,7 @@ public class AFUNIXSocketAddress extends InetSocketAddress {
      * @throws IOException
      */
     public AFUNIXSocketAddress ( final File socketFile, final int port ) throws IOException {
-        this(socketFile, port, false);
+        this(socketFile, port, false, false);
     }
 
 
@@ -89,12 +90,29 @@ public class AFUNIXSocketAddress extends InetSocketAddress {
      * @throws IOException
      */
     public AFUNIXSocketAddress ( final File socketFile, final int port, boolean abst ) throws IOException {
+    	this(socketFile, port, abst, false);
+    }
+
+    /**
+     * Creates a new {@link AFUNIXSocketAddress} that points to the AF_UNIX
+     * socket specified by the given file, assigning the given port to it.
+     * 
+     * @param socketFile
+     * @param port
+     * @param abst
+     *            abstract socket
+     * @param dgram
+     *            dgram socket 
+     * @throws IOException
+     */
+    public AFUNIXSocketAddress ( final File socketFile, final int port, boolean abst, boolean dgram ) throws IOException {
         super(0);
         if ( port != 0 ) {
             NativeUnixSocket.setPort(this, port);
         }
         this.socketFile = socketFile.getCanonicalPath();
         this.abst = abst;
+	this.dgram = dgram;
     }
 
 
@@ -110,6 +128,10 @@ public class AFUNIXSocketAddress extends InetSocketAddress {
 
     public boolean isAbstract () {
         return this.abst;
+    }
+
+    public boolean isDgram() {
+    	return this.dgram;
     }
 
 
