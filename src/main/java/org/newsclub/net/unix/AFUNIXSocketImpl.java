@@ -50,7 +50,9 @@ class AFUNIXSocketImpl extends SocketImpl {
 
     boolean closedInputStream = false;
     boolean closedOutputStream = false;
+
     private boolean abstractSocket;
+    private boolean dgram;
 
 
     public AFUNIXSocketImpl () {
@@ -67,7 +69,7 @@ class AFUNIXSocketImpl extends SocketImpl {
     @Override
     protected void accept ( SocketImpl s ) throws IOException {
         AFUNIXSocketImpl si = (AFUNIXSocketImpl) s;
-        NativeUnixSocket.accept(this.socketFile, this.fd, si.fd, this.abstractSocket);
+        NativeUnixSocket.accept(this.socketFile, this.fd, si.fd, this.abstractSocket, this.dgram);
         si.socketFile = this.socketFile;
         si.connected = true;
     }
@@ -78,13 +80,16 @@ class AFUNIXSocketImpl extends SocketImpl {
         return NativeUnixSocket.available(this.fd);
     }
 
-    protected void bind ( SocketAddress addr, boolean dgram ) throws IOException {
+
+    protected void bind ( SocketAddress addr, boolean dg ) throws IOException {
         bind(0, addr);
     }
+
 
     protected void bind ( SocketAddress addr ) throws IOException {
         bind(0, addr);
     }
+
 
     protected void bind ( int backlog, SocketAddress addr ) throws IOException {
         if ( ! ( addr instanceof AFUNIXSocketAddress ) ) {
@@ -96,6 +101,7 @@ class AFUNIXSocketImpl extends SocketImpl {
         this.bound = true;
         this.localport = sockAddr.getPort();
         this.abstractSocket = sockAddr.isAbstract();
+        this.dgram = sockAddr.isDgram();
     }
 
 
@@ -164,7 +170,7 @@ class AFUNIXSocketImpl extends SocketImpl {
 
 
     @Override
-    protected InputStream getInputStream () throws IOException {
+    protected AFUNIXInputStream getInputStream () throws IOException {
         if ( !this.connected && !this.bound ) {
             throw new IOException("Not connected/not bound");
         }
@@ -173,7 +179,7 @@ class AFUNIXSocketImpl extends SocketImpl {
 
 
     @Override
-    protected OutputStream getOutputStream () throws IOException {
+    protected AFUNIXOutputStream getOutputStream () throws IOException {
         if ( !this.connected && !this.bound ) {
             throw new IOException("Not connected/not bound");
         }
@@ -204,7 +210,7 @@ class AFUNIXSocketImpl extends SocketImpl {
         return new SocketCredentials(NativeUnixSocket.receiveCredentials(this.fd));
     }
 
-    private final class AFUNIXInputStream extends InputStream {
+    public final class AFUNIXInputStream extends InputStream {
 
         private boolean streamClosed = false;
 
@@ -268,7 +274,7 @@ class AFUNIXSocketImpl extends SocketImpl {
         }
     }
 
-    private final class AFUNIXOutputStream extends OutputStream {
+    public final class AFUNIXOutputStream extends OutputStream {
 
         private boolean streamClosed = false;
 
@@ -279,6 +285,52 @@ class AFUNIXSocketImpl extends SocketImpl {
          * 
          */
         public AFUNIXOutputStream () {}
+
+
+        /**
+         * 
+         * @param msg
+         * @param sendCreds
+         */
+        public int sendmsg ( byte[] msg, boolean sendCreds ) throws IOException {
+            if ( this.streamClosed ) {
+                throw new AFUNIXSocketException("This OutputStream has already been closed.");
+            }
+
+            try {
+                int written = NativeUnixSocket.writeMsg(getFD(), msg, 0, msg.length, sendCreds);
+                if ( written == -1 ) {
+                    throw new IOException("Unspecific error while writing");
+                }
+                return written;
+            }
+            catch ( IOException e ) {
+                throw (IOException) new IOException(e.getMessage() + " at " + AFUNIXSocketImpl.this.toString()).initCause(e);
+            }
+        }
+
+
+        /**
+         * 
+         * @param fd
+         * @throws AFUNIXSocketException
+         */
+        public int sendfd ( FileDescriptor passFd ) throws IOException {
+            if ( this.streamClosed ) {
+                throw new AFUNIXSocketException("This OutputStream has already been closed.");
+            }
+
+            try {
+                int res = NativeUnixSocket.passFd(getFD(), passFd);
+                if ( res == -1 ) {
+                    throw new IOException("Unspecific error while writing");
+                }
+                return res;
+            }
+            catch ( IOException e ) {
+                throw (IOException) new IOException(e.getMessage() + " at " + AFUNIXSocketImpl.this.toString()).initCause(e);
+            }
+        }
 
 
         @Override

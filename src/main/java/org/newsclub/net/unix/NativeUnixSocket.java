@@ -44,14 +44,14 @@ final class NativeUnixSocket {
     static void load () {
         if ( !loaded ) {
 
-            if ( tryOSGILoadLibrary() ) {
-                return;
-            }
-
             String override = System.getProperty(PROP_LIBRARY_OVERRIDE);
             if ( override != null ) {
                 System.load(override);
                 loaded = true;
+                return;
+            }
+
+            if ( tryOSGILoadLibrary() ) {
                 return;
             }
 
@@ -168,7 +168,8 @@ final class NativeUnixSocket {
     native static void listen ( final FileDescriptor fd, final int backlog ) throws IOException;
 
 
-    native static void accept ( final String socketFile, final FileDescriptor fdServer, final FileDescriptor fd, boolean abstr ) throws IOException;
+    native static void accept ( final String socketFile, final FileDescriptor fdServer, final FileDescriptor fd, boolean abstr, boolean dgram )
+            throws IOException;
 
 
     native static void connect ( final String socketFile, final FileDescriptor fd, boolean abstr, boolean dgram ) throws IOException;
@@ -223,5 +224,11 @@ final class NativeUnixSocket {
 
 
     native static void setPort ( final AFUNIXSocketAddress addr, int port );
+
+
+    native static int writeMsg ( FileDescriptor fd, byte[] msg, int i, int length, boolean sendCreds ) throws IOException;
+
+
+    native static int passFd ( FileDescriptor fd, FileDescriptor passfd ) throws IOException;
 
 }

@@ -4,7 +4,14 @@
 
 	<artifactId>junixsocket</artifactId>
 	<groupId>eu.agno3</groupId>
-	<version>2.3</version>
+	<version>2.5</version>
+
+	<parent>
+		<groupId>eu.agno3.maven</groupId>
+		<artifactId>agno3-global-parent</artifactId>
+		<version>0.0.10</version>
+		<relativePath />
+	</parent>
 
 	<packaging>bundle</packaging>
 	<name>JUnixSocket</name>
@@ -26,7 +33,6 @@
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-compiler-plugin</artifactId>
-				<version>3.1</version>
 				<configuration>
 					<source>1.7</source>
 					<target>1.7</target>
@@ -35,7 +41,6 @@
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-surefire-plugin</artifactId>
-				<version>2.16</version>
 				<configuration>
 					<systemPropertyVariables>
 						<org.newsclub.net.unix.library.override>${project.build.directory}/libjunixsocket.so.${project.version}-linux64.jar</org.newsclub.net.unix.library.override>
@@ -184,6 +189,25 @@
 										<ignore></ignore>
 									</action>
 								</pluginExecution>
+								<pluginExecution>
+									<pluginExecutionFilter>
+										<groupId>
+											eu.agno3.tools
+										</groupId>
+										<artifactId>
+											sigverify-maven-plugin
+										</artifactId>
+										<versionRange>
+											[1.0.3,)
+										</versionRange>
+										<goals>
+											<goal>check</goal>
+										</goals>
+									</pluginExecutionFilter>
+									<action>
+										<ignore></ignore>
+									</action>
+								</pluginExecution>
 							</pluginExecutions>
 						</lifecycleMappingMetadata>
 					</configuration>
@@ -196,7 +220,6 @@
 			<groupId>log4j</groupId>
 			<artifactId>log4j</artifactId>
 			<version>1.2.17</version>
-			<type>bundle</type>
 			<scope>provided</scope>
 		</dependency>
 		<dependency>

@@ -23,6 +23,9 @@ import java.net.Socket;
 import java.net.SocketAddress;
 import java.net.SocketException;
 
+import org.newsclub.net.unix.AFUNIXSocketImpl.AFUNIXInputStream;
+import org.newsclub.net.unix.AFUNIXSocketImpl.AFUNIXOutputStream;
+
 
 /**
  * Implementation of an AF_UNIX domain socket.
@@ -72,6 +75,28 @@ public class AFUNIXSocket extends Socket implements UNIXSocket {
         AFUNIXSocket socket = newInstance();
         socket.connect(addr);
         return socket;
+    }
+
+
+    /**
+     * {@inheritDoc}
+     *
+     * @see java.net.Socket#getOutputStream()
+     */
+    @Override
+    public AFUNIXOutputStream getOutputStream () throws IOException {
+        return (AFUNIXOutputStream) super.getOutputStream();
+    }
+
+
+    /**
+     * {@inheritDoc}
+     *
+     * @see java.net.Socket#getInputStream()
+     */
+    @Override
+    public AFUNIXInputStream getInputStream () throws IOException {
+        return (AFUNIXInputStream) super.getInputStream();
     }
 
 

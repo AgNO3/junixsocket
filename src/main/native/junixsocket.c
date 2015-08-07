@@ -103,7 +103,7 @@ typedef unsigned long socklen_t; /* 64-bits */
 	 * Signature: (Ljava/lang/String;Ljava/io/FileDescriptor;Ljava/io/FileDescriptor;)V
 	 */
 	JNIEXPORT void JNICALL Java_org_newsclub_net_unix_NativeUnixSocket_accept
-	(JNIEnv * env, jclass clazz, jstring file, jobject fdServer, jobject fd, jboolean abstract) {
+	(JNIEnv * env, jclass clazz, jstring file, jobject fdServer, jobject fd, jboolean abstract, jboolean dgram) {
 		
 		const char* socketFile = (*env)->GetStringUTFChars(env, file, NULL);
 		if(socketFile == NULL) {
@@ -141,14 +141,18 @@ typedef unsigned long socklen_t; /* 64-bits */
 		 + sizeof(su.sun_len)
 	        #endif
         	;
+
+		if ( dgram == JNI_TRUE ) {
+			org_newsclub_net_unix_NativeUnixSocket_initFD(env, fd, serverHandle);
+		} else {
+			int socketHandle = accept(serverHandle, (struct sockaddr *)&su, &suLength);
+			if(socketHandle == -1) {
+				org_newsclub_net_unix_NativeUnixSocket_throwException(env, strerror(errno), file);
+				return;
+			}
 		
-		int socketHandle = accept(serverHandle, (struct sockaddr *)&su, &suLength);
-		if(socketHandle == -1) {
-			org_newsclub_net_unix_NativeUnixSocket_throwException(env, strerror(errno), file);
-			return;
+			org_newsclub_net_unix_NativeUnixSocket_initFD(env, fd, socketHandle);
 		}
-		
-		org_newsclub_net_unix_NativeUnixSocket_initFD(env, fd, socketHandle);
 		return;
 	}
 	
@@ -265,10 +269,12 @@ typedef unsigned long socklen_t; /* 64-bits */
 			}
 		}
 		
-		int listenRes = listen(serverHandle, backlog);
-		if(listenRes == -1) {
-			org_newsclub_net_unix_NativeUnixSocket_throwException(env, strerror(errno), file);
-			return;
+		if ( dgram == JNI_FALSE ) {
+			int listenRes = listen(serverHandle, backlog);
+			if(listenRes == -1) {
+				org_newsclub_net_unix_NativeUnixSocket_throwException(env, strerror(errno), file);
+				return;
+			}
 		}
 		
 		org_newsclub_net_unix_NativeUnixSocket_initFD(env, fd, serverHandle);
@@ -344,10 +350,9 @@ typedef unsigned long socklen_t; /* 64-bits */
 	        #endif
         	;
 
-		
 		int ret = connect(socketHandle, (struct sockaddr *)&su, suLength);
 		if(ret == -1) {
-            close(socketHandle);
+			close(socketHandle);
 			org_newsclub_net_unix_NativeUnixSocket_throwException(env, strerror(errno), file);
 			return;
 		}
@@ -416,6 +421,109 @@ typedef unsigned long socklen_t; /* 64-bits */
 		}
 		
 		return count;	
+	}
+
+
+	/*
+	*
+	* Class:     org_newsclub_net_unix_NativeUnixSocket
+	* Method:    passFd
+	* Signature: (Ljava/io/FileDescriptor;Ljava/io/FileDescriptor;)I
+	*/
+	JNIEXPORT jint JNICALL Java_org_newsclub_net_unix_NativeUnixSocket_passFd
+	  (JNIEnv *env, jclass clazz, jobject fd, jobject passfd) {
+		int handle = org_newsclub_net_unix_NativeUnixSocket_getFD(env, fd);
+
+		jclass fileDescriptorClass = (*env)->GetObjectClass(env, passfd);
+		jfieldID fdField = (*env)->GetFieldID(env, fileDescriptorClass, "fd", "I");
+		if(fdField == NULL) {
+			org_newsclub_net_unix_NativeUnixSocket_throwException(env, "Cannot find field \"fd\" in java.io.FileDescriptor. Unsupported JVM?", NULL);
+			return 0;
+		}
+		int pass_fd = (*env)->GetIntField(env, passfd, fdField);
+		struct msghdr msg;
+		msg.msg_name = NULL;
+		msg.msg_namelen = 0;
+		msg.msg_flags = 0;
+		msg.msg_iov = NULL;
+		msg.msg_iovlen = 0;
+
+		char ctrlbuf[CMSG_SPACE(sizeof(int))];
+		msg.msg_control = ctrlbuf;
+		msg.msg_controllen = sizeof ctrlbuf;
+		struct cmsghdr *cmsg;
+		cmsg = CMSG_FIRSTHDR(&msg);
+		cmsg->cmsg_level = SOL_SOCKET;
+		cmsg->cmsg_type = SCM_RIGHTS;
+		cmsg->cmsg_len = CMSG_LEN(sizeof(int));
+		memcpy(CMSG_DATA(cmsg), &pass_fd, sizeof(int));
+
+		ssize_t count = sendmsg(handle, &msg, MSG_NOSIGNAL);
+		if(count == -1) {
+			if(errno == EAGAIN || errno == EWOULDBLOCK) {
+				return 0;
+			}
+			org_newsclub_net_unix_NativeUnixSocket_throwException(env, strerror(errno), NULL);
+			return -1;
+		}
+		return 0;
+	}
+
+	/*
+	 * Class:     org_newsclub_net_unix_NativeUnixSocket
+	 * Method:    writeMsg
+	 * Signature: (Ljava/io/FileDescriptor;[BII)V
+	 */
+	JNIEXPORT int JNICALL Java_org_newsclub_net_unix_NativeUnixSocket_writeMsg
+	  (JNIEnv *env, jclass clazz, jobject fd, jbyteArray jbuf, jint offset, jint length, jboolean send_creds) {
+		jbyte *buf = (*env)->GetByteArrayElements(env, jbuf, NULL);
+		if(buf == NULL) {
+			return -1; // OOME
+		}
+		int handle = org_newsclub_net_unix_NativeUnixSocket_getFD(env, fd);
+		struct msghdr msg;
+		struct iovec iov;
+		msg.msg_name = NULL;
+		msg.msg_namelen = 0;
+		msg.msg_flags = 0;
+		msg.msg_iov = &iov;
+		msg.msg_iovlen = 1;
+		msg.msg_control = NULL;
+		msg.msg_controllen = 0;
+		iov.iov_base =  &buf[offset];
+		iov.iov_len = length;
+
+#ifdef SCM_CREDENTIALS
+		if ( send_creds ) {
+			char ctrlbuf[CMSG_SPACE(sizeof(struct ucred))];
+			msg.msg_control = ctrlbuf;
+			msg.msg_controllen = sizeof ctrlbuf;
+			struct cmsghdr *cmsg;
+			struct ucred *creds;
+
+			cmsg = CMSG_FIRSTHDR(&msg);
+			cmsg->cmsg_level = SOL_SOCKET;
+			cmsg->cmsg_type = SCM_CREDENTIALS;
+			cmsg->cmsg_len = CMSG_LEN(sizeof(struct ucred));
+			/* Initialize the payload: */
+			creds = (struct ucred *)CMSG_DATA(cmsg);
+			creds->pid = getpid();
+			creds->uid = getuid();
+			creds->gid = getgid();
+		}
+#endif
+
+		ssize_t count = sendmsg(handle, &msg, MSG_NOSIGNAL);
+		(*env)->ReleaseByteArrayElements(env, jbuf, buf, 0);
+
+		if(count == -1) {
+			if(errno == EAGAIN || errno == EWOULDBLOCK) {
+				return 0;
+			}
+			org_newsclub_net_unix_NativeUnixSocket_throwException(env, strerror(errno), NULL);
+			return -1;
+		}
+		return 0;
 	}
 
 	
@@ -766,7 +874,7 @@ typedef unsigned long socklen_t; /* 64-bits */
 		  creds->gid = getgid();
 #endif
 
-		  int rv = sendmsg(handle, &msg, 0);
+		  int rv = sendmsg(handle, &msg, MSG_NOSIGNAL);
 		  if (-1 == rv) {
 		  	org_newsclub_net_unix_NativeUnixSocket_throwException(env, strerror(rv), NULL);
 		  }
